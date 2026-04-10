@@ -32,6 +32,8 @@ class AppTests(unittest.TestCase):
         )
         page_html = response.get_data(as_text=True)
         self.assertIn(f'value="{today}"', page_html)
+        self.assertIn("Today", page_html)
+        self.assertIn("Xóa lọc", page_html)
 
     def test_index_keeps_user_selected_filter_dates(self) -> None:
         app = create_app()

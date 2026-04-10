@@ -56,8 +56,34 @@ form button {
     transition: background 0.3s;
 }
 
+.filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
 form button:hover {
     background-color: #2980b9;
+}
+
+.secondary-button,
+.secondary-link {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.secondary-button:hover,
+.secondary-link:hover {
+    background-color: #7f8c8d;
+}
+
+.secondary-link {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: bold;
 }
 
 .export-button {

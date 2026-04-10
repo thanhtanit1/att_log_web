@@ -4,6 +4,7 @@
 <head>
     <title>Chấm công</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
 </head>
 
 <body>
@@ -29,7 +30,11 @@
         <label for="end_date">Đến ngày:</label>
         <input type="date" id="end_date" name="end_date" value="{{ end_date or '' }}">
 
-        <button type="submit">Lọc</button>
+        <div class="filter-actions">
+            <button type="submit">Lọc</button>
+            <button type="button" class="secondary-button" data-set-today>Today</button>
+            <a class="secondary-link" href="{{ url_for('main.index') }}">Xóa lọc</a>
+        </div>
         <a class="export-button" href="{{ export_url }}">Export
             TXT</a>
     </form>
