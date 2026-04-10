@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: att-log
+    env: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: SECRET_KEY
+        sync: false
+      - key: DB_DRIVER
+        value: ODBC Driver 18 for SQL Server
+      - key: DB_SERVER
+        sync: false
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_UID
+        sync: false
+      - key: DB_PWD
+        sync: false
+      - key: DB_ENCRYPT
+        value: yes
+      - key: DB_TRUST_CERT
+        value: yes
+      - key: DB_TIMEOUT
+        value: 30
+      - key: PAGE_SIZE
+        value: 20
