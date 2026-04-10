@@ -276,7 +276,7 @@ def get_export_data(devname=None, start_date=None, end_date=None):
     SELECT
         att.[PIN] AS [ID cham cong],
         CONVERT(varchar(10), att.[AttTime], 23) AS [Ngay cham cong],
-        CONVERT(varchar(8), att.[AttTime], 108) AS [Gio cham cong]
+        CONVERT(varchar(5), att.[AttTime], 108) AS [Gio cham cong]
     FROM dbo.tbl_3_AttLog att
     JOIN dbo.tbl_3_Device de
         ON de.DevSN = att.DevSN
