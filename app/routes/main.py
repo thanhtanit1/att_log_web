@@ -1,10 +1,15 @@
 from datetime import datetime
 
-from flask import Blueprint, Response, current_app, render_template, request, url_for
+from flask import Blueprint, Response, current_app, jsonify, render_template, request, url_for
 
-from app.services.attendance_service import get_data, get_device_options, get_export_data
+from app.services.attendance_service import get_dashboard_data, get_export_data
 
 main_bp = Blueprint("main", __name__)
+
+
+@main_bp.route("/healthz")
+def healthz():
+    return jsonify({"status": "ok"}), 200
 
 
 @main_bp.route("/")
@@ -13,17 +18,13 @@ def index():
     devname = request.args.get("devname", "all")
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
-    device_options, device_error = get_device_options()
-
-    columns, data, total_rows, error = get_data(
+    device_options, columns, data, total_rows, error = get_dashboard_data(
         page=page,
         page_size=current_app.config["PAGE_SIZE"],
         devname=devname,
         start_date=start_date,
         end_date=end_date,
     )
-    if not error and device_error:
-        error = device_error
 
     return render_template(
         "index.html",

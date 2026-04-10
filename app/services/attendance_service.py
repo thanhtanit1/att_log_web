@@ -1,10 +1,23 @@
 from datetime import datetime
 
-import pyodbc
 from flask import current_app
 
 
 def get_connection():
+    missing_settings = [
+        key
+        for key in ("DB_SERVER", "DB_DATABASE", "DB_UID", "DB_PWD")
+        if not current_app.config.get(key)
+    ]
+    if missing_settings:
+        missing_text = ", ".join(missing_settings)
+        raise RuntimeError(f"Thieu bien moi truong DB: {missing_text}")
+
+    try:
+        import pyodbc
+    except Exception as exc:
+        raise RuntimeError(f"Khong the import pyodbc: {exc}") from exc
+
     conn_str = (
         f"DRIVER={{{current_app.config['DB_DRIVER']}}};"
         f"SERVER={current_app.config['DB_SERVER']};"
@@ -18,15 +31,18 @@ def get_connection():
     return pyodbc.connect(conn_str)
 
 
-def get_device_options():
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-             SELECT DISTINCT de.DevName
-            FROM dbo.tbl_3_Device de
-            WHERE de.DevName IN
+def _apply_cursor_timeout(cursor):
+    timeout = current_app.config.get("DB_TIMEOUT")
+    if timeout:
+        cursor.timeout = timeout
+
+
+def _fetch_device_options(cursor):
+    cursor.execute(
+        """
+         SELECT DISTINCT de.DevName
+        FROM dbo.tbl_3_Device de
+        WHERE de.DevName IN
 			('Hà Nam 01',
 			'Hà Nam 02',
 			'Kho heo Dak Lak',
@@ -36,10 +52,58 @@ def get_device_options():
 			'VP Long An',
 			'VP Nha Trang',
 			'VP Sale Ha Noi')
-            ORDER BY de.DevName
-            """
-        )
-        options = [row[0] for row in cursor.fetchall()]
+        ORDER BY de.DevName
+        """
+    )
+    return [row[0] for row in cursor.fetchall()]
+
+
+def _fetch_data(cursor, resolved_page_size, offset, devname=None, start_date=None, end_date=None):
+    where_conditions, params, filter_error = build_filter_conditions(
+        devname=devname,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    if filter_error:
+        return [], [], 0, str(filter_error)
+
+    where_clause = " AND ".join(where_conditions)
+    query = f"""
+    SELECT
+        de.DevName AS [Vi Tri may cham cong],
+        att.[PIN] AS [ID cham cong],
+        CONVERT(varchar(10), att.[AttTime], 23) AS [Ngay cham cong],
+        CONVERT(varchar(8), att.[AttTime], 108) AS [Gio cham cong]
+    FROM dbo.tbl_3_AttLog att
+    JOIN dbo.tbl_3_Device de
+        ON de.DevSN = att.DevSN
+    WHERE {where_clause}
+    ORDER BY att.AttTime DESC
+    OFFSET {offset} ROWS FETCH NEXT {resolved_page_size} ROWS ONLY;
+    """
+
+    count_query = f"""
+    SELECT COUNT(*)
+    FROM dbo.tbl_3_AttLog att
+    JOIN dbo.tbl_3_Device de
+        ON de.DevSN = att.DevSN
+    WHERE {where_clause}
+    """
+
+    cursor.execute(count_query, params)
+    total_rows = cursor.fetchone()[0]
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    columns = [desc[0] for desc in cursor.description]
+    return columns, rows, total_rows, None
+
+
+def get_device_options():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        _apply_cursor_timeout(cursor)
+        options = _fetch_device_options(cursor)
         cursor.close()
         conn.close()
         return options, None
@@ -79,51 +143,27 @@ def get_data(page=1, page_size=None, devname=None, start_date=None, end_date=Non
     try:
         conn = get_connection()
         cursor = conn.cursor()
+        _apply_cursor_timeout(cursor)
     except Exception as exc:
         return [], [], 0, str(exc)
 
     resolved_page_size = page_size or current_app.config["PAGE_SIZE"]
     page = max(page, 1)
     offset = (page - 1) * resolved_page_size
-    where_conditions, params, filter_error = build_filter_conditions(
-        devname=devname,
-        start_date=start_date,
-        end_date=end_date,
-    )
-    if filter_error:
-        cursor.close()
-        conn.close()
-        return [], [], 0, str(filter_error)
-
-    where_clause = " AND ".join(where_conditions)
-    query = f"""
-    SELECT
-        de.DevName AS [Vi Tri may cham cong],
-        att.[PIN] AS [ID cham cong],
-        CONVERT(varchar(10), att.[AttTime], 23) AS [Ngay cham cong],
-        CONVERT(varchar(8), att.[AttTime], 108) AS [Gio cham cong]
-    FROM dbo.tbl_3_AttLog att
-    JOIN dbo.tbl_3_Device de
-        ON de.DevSN = att.DevSN
-    WHERE {where_clause}
-    ORDER BY att.AttTime DESC
-    OFFSET {offset} ROWS FETCH NEXT {resolved_page_size} ROWS ONLY;
-    """
-
-    count_query = f"""
-    SELECT COUNT(*)
-    FROM dbo.tbl_3_AttLog att
-    JOIN dbo.tbl_3_Device de
-        ON de.DevSN = att.DevSN
-    WHERE {where_clause}
-    """
 
     try:
-        cursor.execute(count_query, params)
-        total_rows = cursor.fetchone()[0]
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        columns = [desc[0] for desc in cursor.description]
+        columns, rows, total_rows, error = _fetch_data(
+            cursor,
+            resolved_page_size,
+            offset,
+            devname=devname,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        if error:
+            cursor.close()
+            conn.close()
+            return [], [], 0, error
     except Exception as exc:
         cursor.close()
         conn.close()
@@ -138,6 +178,7 @@ def get_export_data(devname=None, start_date=None, end_date=None):
     try:
         conn = get_connection()
         cursor = conn.cursor()
+        _apply_cursor_timeout(cursor)
     except Exception as exc:
         return [], [], str(exc)
 
@@ -176,3 +217,39 @@ def get_export_data(devname=None, start_date=None, end_date=None):
     cursor.close()
     conn.close()
     return columns, rows, None
+
+
+def get_dashboard_data(page=1, page_size=None, devname=None, start_date=None, end_date=None):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        _apply_cursor_timeout(cursor)
+    except Exception as exc:
+        return [], [], [], 0, str(exc)
+
+    resolved_page_size = page_size or current_app.config["PAGE_SIZE"]
+    page = max(page, 1)
+    offset = (page - 1) * resolved_page_size
+
+    try:
+        device_options = _fetch_device_options(cursor)
+        columns, rows, total_rows, error = _fetch_data(
+            cursor,
+            resolved_page_size,
+            offset,
+            devname=devname,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        if error:
+            cursor.close()
+            conn.close()
+            return [], [], [], 0, error
+    except Exception as exc:
+        cursor.close()
+        conn.close()
+        return [], [], [], 0, str(exc)
+
+    cursor.close()
+    conn.close()
+    return device_options, columns, rows, total_rows, None

@@ -4,7 +4,7 @@ services:
     env: docker
     plan: free
     autoDeploy: true
-    healthCheckPath: /
+    healthCheckPath: /healthz
     envVars:
       - key: SECRET_KEY
         sync: false
@@ -23,6 +23,6 @@ services:
       - key: DB_TRUST_CERT
         value: yes
       - key: DB_TIMEOUT
-        value: 30
+        value: 10
       - key: PAGE_SIZE
         value: 20
