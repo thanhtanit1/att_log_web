@@ -7,6 +7,10 @@ from app.services.attendance_service import get_dashboard_data, get_export_data
 main_bp = Blueprint("main", __name__)
 
 
+def _get_default_filter_date() -> str:
+    return datetime.now().strftime("%Y-%m-%d")
+
+
 @main_bp.route("/healthz")
 def healthz():
     return jsonify({"status": "ok"}), 200
@@ -16,8 +20,9 @@ def healthz():
 def index():
     page = max(request.args.get("page", default=1, type=int), 1)
     devname = request.args.get("devname", "all")
-    start_date = request.args.get("start_date")
-    end_date = request.args.get("end_date")
+    default_date = _get_default_filter_date()
+    start_date = request.args.get("start_date") or default_date
+    end_date = request.args.get("end_date") or default_date
     device_options, columns, data, total_rows, error = get_dashboard_data(
         page=page,
         page_size=current_app.config["PAGE_SIZE"],
