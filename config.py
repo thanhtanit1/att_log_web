@@ -9,7 +9,7 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
-    DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 18 for SQL Server")
+    DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
     DB_SERVER = os.getenv("DB_SERVER", "")
     DB_DATABASE = os.getenv("DB_DATABASE", "")
     DB_UID = os.getenv("DB_UID", "")

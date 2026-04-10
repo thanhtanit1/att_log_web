@@ -3,38 +3,72 @@ from datetime import datetime
 from flask import current_app
 
 
-def get_connection():
+PLACEHOLDER_VALUES = {"change-me", "your-password", "replace-me", "password"}
+
+
+def _escape_odbc_value(value):
+    return "{" + str(value).replace("}", "}}") + "}"
+
+
+def _build_connection_string(config):
+    return ";".join(
+        (
+            f"DRIVER={_escape_odbc_value(config['DB_DRIVER'])}",
+            f"SERVER={_escape_odbc_value(config['DB_SERVER'])}",
+            f"DATABASE={_escape_odbc_value(config['DB_DATABASE'])}",
+            f"UID={_escape_odbc_value(config['DB_UID'])}",
+            f"PWD={_escape_odbc_value(config['DB_PWD'])}",
+            f"Encrypt={_escape_odbc_value(config['DB_ENCRYPT'])}",
+            f"TrustServerCertificate={_escape_odbc_value(config['DB_TRUST_CERT'])}",
+            f"Connection Timeout={_escape_odbc_value(config['DB_TIMEOUT'])}",
+        )
+    ) + ";"
+
+
+def _validate_db_settings(config):
     missing_settings = [
-        key
-        for key in ("DB_SERVER", "DB_DATABASE", "DB_UID", "DB_PWD")
-        if not current_app.config.get(key)
+        key for key in ("DB_SERVER", "DB_DATABASE", "DB_UID", "DB_PWD") if not config.get(key)
     ]
     if missing_settings:
         missing_text = ", ".join(missing_settings)
         raise RuntimeError(f"Thieu bien moi truong DB: {missing_text}")
+
+    password = str(config.get("DB_PWD", "")).strip().lower()
+    if password in PLACEHOLDER_VALUES:
+        raise RuntimeError(
+            "DB_PWD dang la gia tri mau trong file .env. Cap nhat mat khau SQL Server thuc te truoc khi chay app."
+        )
+
+
+def get_connection():
+    _validate_db_settings(current_app.config)
 
     try:
         import pyodbc
     except Exception as exc:
         raise RuntimeError(f"Khong the import pyodbc: {exc}") from exc
 
-    conn_str = (
-        f"DRIVER={{{current_app.config['DB_DRIVER']}}};"
-        f"SERVER={current_app.config['DB_SERVER']};"
-        f"DATABASE={current_app.config['DB_DATABASE']};"
-        f"UID={current_app.config['DB_UID']};"
-        f"PWD={current_app.config['DB_PWD']};"
-        f"Encrypt={current_app.config['DB_ENCRYPT']};"
-        f"TrustServerCertificate={current_app.config['DB_TRUST_CERT']};"
-        f"Connection Timeout={current_app.config['DB_TIMEOUT']};"
-    )
-    return pyodbc.connect(conn_str)
+    conn_str = _build_connection_string(current_app.config)
+    try:
+        connection = pyodbc.connect(conn_str)
+        timeout = current_app.config.get("DB_TIMEOUT")
+        if timeout:
+            try:
+                connection.timeout = timeout
+            except Exception:
+                pass
+        return connection
+    except pyodbc.Error as exc:
+        error_text = str(exc)
+        if "Login failed for user" in error_text:
+            raise RuntimeError(
+                f"Dang nhap SQL Server that bai cho tai khoan '{current_app.config['DB_UID']}'. Kiem tra lai DB_UID/DB_PWD trong file .env."
+            ) from exc
+        raise RuntimeError(f"Khong the ket noi SQL Server: {exc}") from exc
 
 
 def _apply_cursor_timeout(cursor):
-    timeout = current_app.config.get("DB_TIMEOUT")
-    if timeout:
-        cursor.timeout = timeout
+    return None
 
 
 def _fetch_device_options(cursor):
