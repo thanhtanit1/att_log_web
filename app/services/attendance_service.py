@@ -1,4 +1,5 @@
 from datetime import datetime
+import socket
 from time import monotonic
 
 from flask import current_app
@@ -29,6 +30,36 @@ def _build_connection_string(config):
     ) + ";"
 
 
+def _parse_server_endpoint(server_value):
+    raw_value = str(server_value or "").strip()
+    if not raw_value:
+        return None, None
+
+    if "," in raw_value:
+        host, port_text = raw_value.rsplit(",", 1)
+        try:
+            return host.strip(), int(port_text.strip())
+        except ValueError:
+            return raw_value, None
+
+    return raw_value, 1433
+
+
+def _check_server_reachability(config):
+    host, port = _parse_server_endpoint(config.get("DB_SERVER"))
+    if not host or not port:
+        return
+
+    timeout = max(1, min(int(config.get("DB_TIMEOUT", 10)), 5))
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return
+    except OSError as exc:
+        raise RuntimeError(
+            f"Khong mo duoc ket noi TCP toi SQL Server {host}:{port}. Kiem tra firewall, NAT port, whitelist IP cua Render va dam bao SQL Server cho phep ket noi tu Internet. Chi tiet: {exc}"
+        ) from exc
+
+
 def _validate_db_settings(config):
     missing_settings = [
         key for key in ("DB_SERVER", "DB_DATABASE", "DB_UID", "DB_PWD") if not config.get(key)
@@ -46,6 +77,7 @@ def _validate_db_settings(config):
 
 def get_connection():
     _validate_db_settings(current_app.config)
+    _check_server_reachability(current_app.config)
 
     try:
         import pyodbc
@@ -54,7 +86,7 @@ def get_connection():
 
     conn_str = _build_connection_string(current_app.config)
     try:
-        connection = pyodbc.connect(conn_str)
+        connection = pyodbc.connect(conn_str, timeout=current_app.config.get("DB_TIMEOUT", 10))
         timeout = current_app.config.get("DB_TIMEOUT")
         if timeout:
             try:
@@ -67,6 +99,11 @@ def get_connection():
         if "Login failed for user" in error_text:
             raise RuntimeError(
                 f"Dang nhap SQL Server that bai cho tai khoan '{current_app.config['DB_UID']}'. Kiem tra lai DB_UID/DB_PWD trong file .env."
+            ) from exc
+        if "Login timeout expired" in error_text:
+            host, port = _parse_server_endpoint(current_app.config.get("DB_SERVER"))
+            raise RuntimeError(
+                f"Ket noi toi SQL Server {host}:{port or 'default'} bi timeout. Kha nang cao Render khong truy cap duoc server/port nay hoac SQL Server phan hoi qua cham."
             ) from exc
         raise RuntimeError(f"Khong the ket noi SQL Server: {exc}") from exc
 

@@ -3,7 +3,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 from app import create_app
-from app.services.attendance_service import _build_connection_string
+from app.services.attendance_service import _build_connection_string, _parse_server_endpoint
 
 
 class AppTests(unittest.TestCase):
@@ -82,3 +82,7 @@ class AppTests(unittest.TestCase):
         )
 
         self.assertIn("PWD={pa;ss}}word};", conn_str)
+
+    def test_parse_server_endpoint_supports_host_and_port(self) -> None:
+        self.assertEqual(_parse_server_endpoint("113.176.95.32,8089"), ("113.176.95.32", 8089))
+        self.assertEqual(_parse_server_endpoint("sql.example.com"), ("sql.example.com", 1433))
