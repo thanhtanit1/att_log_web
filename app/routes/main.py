@@ -23,7 +23,7 @@ def index():
     default_date = _get_default_filter_date()
     start_date = request.args.get("start_date") or default_date
     end_date = request.args.get("end_date") or default_date
-    device_options, columns, data, total_rows, error = get_dashboard_data(
+    device_options, columns, data, total_rows, has_next, error = get_dashboard_data(
         page=page,
         page_size=current_app.config["PAGE_SIZE"],
         devname=devname,
@@ -43,7 +43,7 @@ def index():
         device_options=device_options,
         total_rows=total_rows,
         current_row_count=len(data),
-        has_next=(page * current_app.config["PAGE_SIZE"]) < total_rows,
+        has_next=has_next,
         export_url=url_for(
             "main.export_txt",
             devname=devname,

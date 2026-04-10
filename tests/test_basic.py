@@ -18,7 +18,7 @@ class AppTests(unittest.TestCase):
         with app.test_client() as client:
             with patch(
                 "app.routes.main.get_dashboard_data",
-                return_value=([], [], [], 0, None),
+                return_value=([], [], [], 0, False, None),
             ) as mocked_get_dashboard_data:
                 response = client.get("/")
 
@@ -41,7 +41,7 @@ class AppTests(unittest.TestCase):
         with app.test_client() as client:
             with patch(
                 "app.routes.main.get_dashboard_data",
-                return_value=([], [], [], 0, None),
+                return_value=([], [], [], 0, False, None),
             ) as mocked_get_dashboard_data:
                 response = client.get("/?start_date=2026-04-01&end_date=2026-04-09")
 

@@ -1,9 +1,13 @@
 from datetime import datetime
+from time import monotonic
 
 from flask import current_app
 
 
 PLACEHOLDER_VALUES = {"change-me", "your-password", "replace-me", "password"}
+BASELINE_ATTENDANCE_DATE = datetime(2026, 1, 1)
+DEVICE_OPTIONS_CACHE_SECONDS = 300
+_device_options_cache = {"expires_at": 0.0, "options": []}
 
 
 def _escape_odbc_value(value):
@@ -92,6 +96,17 @@ def _fetch_device_options(cursor):
     return [row[0] for row in cursor.fetchall()]
 
 
+def _get_cached_device_options(cursor):
+    now = monotonic()
+    if _device_options_cache["expires_at"] > now:
+        return list(_device_options_cache["options"])
+
+    options = _fetch_device_options(cursor)
+    _device_options_cache["options"] = list(options)
+    _device_options_cache["expires_at"] = now + DEVICE_OPTIONS_CACHE_SECONDS
+    return options
+
+
 def _fetch_data(cursor, resolved_page_size, offset, devname=None, start_date=None, end_date=None):
     where_conditions, params, filter_error = build_filter_conditions(
         devname=devname,
@@ -113,23 +128,15 @@ def _fetch_data(cursor, resolved_page_size, offset, devname=None, start_date=Non
         ON de.DevSN = att.DevSN
     WHERE {where_clause}
     ORDER BY att.AttTime DESC
-    OFFSET {offset} ROWS FETCH NEXT {resolved_page_size} ROWS ONLY;
+    OFFSET {offset} ROWS FETCH NEXT {resolved_page_size + 1} ROWS ONLY;
     """
 
-    count_query = f"""
-    SELECT COUNT(*)
-    FROM dbo.tbl_3_AttLog att
-    JOIN dbo.tbl_3_Device de
-        ON de.DevSN = att.DevSN
-    WHERE {where_clause}
-    """
-
-    cursor.execute(count_query, params)
-    total_rows = cursor.fetchone()[0]
     cursor.execute(query, params)
     rows = cursor.fetchall()
     columns = [desc[0] for desc in cursor.description]
-    return columns, rows, total_rows, None
+    has_next = len(rows) > resolved_page_size
+    visible_rows = rows[:resolved_page_size]
+    return columns, visible_rows, has_next, None
 
 
 def get_device_options():
@@ -146,8 +153,8 @@ def get_device_options():
 
 
 def build_filter_conditions(devname=None, start_date=None, end_date=None):
-    conditions = ["YEAR(att.AttTime) >= 2026"]
-    params = []
+    conditions = ["att.AttTime >= ?"]
+    params = [BASELINE_ATTENDANCE_DATE]
 
     if devname and devname.lower() != "all":
         conditions.append("de.DevName = ?")
@@ -186,7 +193,7 @@ def get_data(page=1, page_size=None, devname=None, start_date=None, end_date=Non
     offset = (page - 1) * resolved_page_size
 
     try:
-        columns, rows, total_rows, error = _fetch_data(
+        columns, rows, has_next, error = _fetch_data(
             cursor,
             resolved_page_size,
             offset,
@@ -205,6 +212,7 @@ def get_data(page=1, page_size=None, devname=None, start_date=None, end_date=Non
 
     cursor.close()
     conn.close()
+    total_rows = offset + len(rows) + (1 if has_next else 0)
     return columns, rows, total_rows, None
 
 
@@ -266,8 +274,8 @@ def get_dashboard_data(page=1, page_size=None, devname=None, start_date=None, en
     offset = (page - 1) * resolved_page_size
 
     try:
-        device_options = _fetch_device_options(cursor)
-        columns, rows, total_rows, error = _fetch_data(
+        device_options = _get_cached_device_options(cursor)
+        columns, rows, has_next, error = _fetch_data(
             cursor,
             resolved_page_size,
             offset,
@@ -278,12 +286,13 @@ def get_dashboard_data(page=1, page_size=None, devname=None, start_date=None, en
         if error:
             cursor.close()
             conn.close()
-            return [], [], [], 0, error
+            return [], [], [], 0, False, error
     except Exception as exc:
         cursor.close()
         conn.close()
-        return [], [], [], 0, str(exc)
+        return [], [], [], 0, False, str(exc)
 
     cursor.close()
     conn.close()
-    return device_options, columns, rows, total_rows, None
+    total_rows = offset + len(rows) + (1 if has_next else 0)
+    return device_options, columns, rows, total_rows, has_next, None
