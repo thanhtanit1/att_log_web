@@ -267,7 +267,7 @@ def get_dashboard_data(page=1, page_size=None, devname=None, start_date=None, en
         cursor = conn.cursor()
         _apply_cursor_timeout(cursor)
     except Exception as exc:
-        return [], [], [], 0, str(exc)
+        return [], [], [], 0, False, str(exc)
 
     resolved_page_size = page_size or current_app.config["PAGE_SIZE"]
     page = max(page, 1)

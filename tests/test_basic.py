@@ -54,6 +54,19 @@ class AppTests(unittest.TestCase):
             end_date="2026-04-09",
         )
 
+    def test_index_renders_error_message_when_dashboard_fails(self) -> None:
+        app = create_app()
+
+        with app.test_client() as client:
+            with patch(
+                "app.routes.main.get_dashboard_data",
+                return_value=([], [], [], 0, False, "DB connection failed"),
+            ):
+                response = client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("DB connection failed", response.get_data(as_text=True))
+
     def test_build_connection_string_escapes_special_characters(self) -> None:
         conn_str = _build_connection_string(
             {
