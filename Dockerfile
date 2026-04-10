@@ -18,4 +18,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 1 --access-logfile - --error-logfile - --log-level debug run:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 1 --threads 4 --timeout 60 --graceful-timeout 15 --keep-alive 5 --access-logfile - --error-logfile - --log-level info run:app"]
