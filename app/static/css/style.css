@@ -1,0 +1,123 @@
+/* Reset cơ bản */
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+/* Tiêu đề */
+h1 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 20px;
+}
+
+/* Thông báo lỗi */
+.error-message {
+    background-color: #ffe6e6;
+    border: 1px solid #ff4d4d;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    color: #a10000;
+}
+
+/* Form lọc */
+form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 20px;
+    background: #ecf0f1;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+form label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+form select,
+form input[type="date"],
+form button {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+form button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+form button:hover {
+    background-color: #2980b9;
+}
+
+.export-button {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 4px;
+    background-color: #27ae60;
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    transition: background 0.3s;
+}
+
+.export-button:hover {
+    background-color: #1f8a4d;
+    text-decoration: none;
+}
+
+/* Thông tin tổng số dòng */
+p {
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+/* Bảng dữ liệu */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    background: white;
+}
+
+table th,
+table td {
+    padding: 10px;
+    text-align: left;
+    border: 1px solid #ddd;
+}
+
+table th {
+    background-color: #34495e;
+    color: white;
+}
+
+table tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+table tr:hover {
+    background-color: #e6f7ff;
+}
+
+/* Phân trang */
+div a {
+    margin: 0 10px;
+    text-decoration: none;
+    color: #3498db;
+    font-weight: bold;
+}
+
+div a:hover {
+    text-decoration: underline;
+}

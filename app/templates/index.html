@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Chấm công</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <h1>Danh sách chấm công</h1>
+
+    {% if error %}
+    <div class="error-message">{{ error }}</div>
+    {% endif %}
+
+    <!-- Form lọc -->
+    <form method="get" action="{{ url_for('main.index') }}">
+        <label for="devname">Vị trí máy:</label>
+        <select id="devname" name="devname">
+            <option value="all" {% if not devname or devname == 'all' %}selected{% endif %}>All</option>
+            {% for option in device_options or [] %}
+            <option value="{{ option }}" {% if devname == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="start_date">Từ ngày:</label>
+        <input type="date" id="start_date" name="start_date" value="{{ start_date or '' }}">
+
+        <label for="end_date">Đến ngày:</label>
+        <input type="date" id="end_date" name="end_date" value="{{ end_date or '' }}">
+
+        <button type="submit">Lọc</button>
+        <a class="export-button" href="{{ export_url }}">Export
+            TXT</a>
+    </form>
+
+    <p>
+        Tổng số dòng: {{ total_rows or 0 }}
+        | Đang hiển thị: {{ current_row_count or 0 }}
+    </p>
+
+    <!-- Bảng dữ liệu -->
+    <table border="1">
+        <thead>
+            <tr>
+                {% for col in columns %}
+                <th>{{ col }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data %}
+            <tr>
+                {% for value in row %}
+                <td>{{ value }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Nút phân trang -->
+    <div class="pagination">
+        {% set p = page or 1 %}
+        {% if p > 1 %}
+        <a
+            href="{{ url_for('main.index', page=p-1, devname=devname or '', start_date=start_date or '', end_date=end_date or '') }}">Trang
+            trước</a>
+        {% endif %}
+        {% if has_next %}
+        <a
+            href="{{ url_for('main.index', page=p+1, devname=devname or '', start_date=start_date or '', end_date=end_date or '') }}">Trang
+            sau</a>
+        {% endif %}
+    </div>
+</body>
+
+</html>
